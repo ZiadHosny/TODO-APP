@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print
+// ignore_for_file: avoid_print, avoid_function_literals_in_foreach_calls, non_constant_identifier_names
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -16,7 +16,9 @@ class TasksCubit extends Cubit<TasksState> {
   static TasksCubit get(context) => BlocProvider.of(context);
 
   int index = 0;
-  List<Map> tasks = [];
+  List<Map> newTasks = [];
+  List<Map> doneTasks = [];
+  List<Map> archivedTasks = [];
   late Database database;
   bool bottomSheetIsShowen = false;
   IconData fabIcon = Icons.edit;
@@ -69,12 +71,7 @@ class TasksCubit extends Cubit<TasksState> {
         );
       },
       onOpen: (database) {
-        getDataFromDataBase(database).then((value) {
-          tasks = value;
-          print('on opened');
-          print(tasks);
-          emit(TasksGetDataBaseStates());
-        });
+        getDataFromDataBase(database);
       },
     ).then((value) {
       database = value;
@@ -90,29 +87,47 @@ class TasksCubit extends Cubit<TasksState> {
       await txn.rawInsert(
           'INSERT INTO tasks (title, date, time, status) VALUES("$title", "$date", "$time", "New")');
     }).then((value) {
-      print('${value.toString()} inserted successfuly');
+      print('inserted successfuly');
       emit(TasksInsertDataBaseStates());
-      getDataFromDataBase(database).then((value) {
-        tasks = value;
-        print(tasks);
-        emit(TasksGetDataBaseStates());
-      });
+      getDataFromDataBase(database);
     }).catchError((e) {
       print('$e error');
     });
   }
 
-  Future<List<Map>> getDataFromDataBase(Database database) async {
+  void getDataFromDataBase(Database database) {
+    newTasks = [];
+    doneTasks = [];
+    archivedTasks = [];
     emit(TaskGetDataProgressIndcator());
-    List<Map> tasks = await database.rawQuery('SELECT * FROM tasks');
-    return tasks;
+    database.rawQuery('SELECT * FROM tasks').then((value) {
+      value.forEach(
+        (element) {
+          if (element['status'] == 'New') {
+            newTasks.add(element);
+          } else if (element['status'] == 'done') {
+            doneTasks.add(element);
+          } else if (element['status'] == 'archive') {
+            archivedTasks.add(element);
+          }
+        },
+      );
+      print(value);
+      emit(TasksGetDataBaseStates());
+    });
   }
 
-  Future<int> UpdateDataBase({required String status, required int id}) async {
-    return await database
-        .rawUpdate('UPDATE tasks SET status = ? WHERE id = ?', [
+  void updateDataBase({required String status, required int id}) {
+    database.rawUpdate('UPDATE tasks SET status = ? WHERE id = ?', [
       status,
       id,
-    ]);
+    ]).then((value) {
+      getDataFromDataBase(database);
+      emit(TasksUpdateDataBase());
+    });
+  }
+
+  void deleteFromDataBase(int id) {
+    database.rawDelete('DELETE FROM tasks WHERE id = ?', [id]);
   }
 }

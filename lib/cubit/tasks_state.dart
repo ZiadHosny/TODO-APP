@@ -16,3 +16,5 @@ class TasksInsertDataBaseStates extends TasksState {}
 class TasksChangeBottomSheetState extends TasksState {}
 
 class TaskGetDataProgressIndcator extends TasksState {}
+
+class TasksUpdateDataBase extends TasksState {}
